@@ -1,5 +1,6 @@
 package com.example.shproj;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Spannable;
@@ -9,10 +10,13 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.RelativeSizeSpan;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
@@ -27,45 +31,81 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
+    public static final String URL_HOST = "https://shproj2020.herokuapp.com/";
+
     static Reservation[] reservations;
+    static Map<Integer, String> teachers; //prsId -> fio
+    static Room[] rooms;
+    static Map<String, Integer> roomToIndex;
     String schedule;
-    Map<Integer, String> teachers; //prsId -> fio
-//    ActivityMainBinding binding;
+
     PageFragment[] fragments;
-    String[] daysStrings = {"пн", "вт", "ср", "чт", "пт", "сб", "вс"};
     TextView[] daysTV;
 
     ViewPager pager;
 
     int day, dayOfWeek;
 
+    final String[] daysStrings = {"пн", "вт", "ср", "чт", "пт", "сб", "вс"};
+    final static long oneDay = 86400000;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        getSharedPreferences("pref", 0).edit().putString("cookie", "").apply();
+
 //        binding = ActivityMainBinding.inflate(getLayoutInflater());
+
+        new Thread(() -> {
+            try {
+                String s = connect("get_rooms_list", null);
+
+                JSONArray array = new JSONArray(s);
+                rooms = new Room[array.length()];
+                roomToIndex = new HashMap<>();
+                JSONObject obj;
+                for (int i = 0; i < array.length(); i++) {
+                    rooms[i] = new Room();
+                    obj = array.getJSONObject(i);
+
+                    rooms[i].classNumber = obj.getString("classNumber");
+                    rooms[i].seats = obj.getInt("seats");
+                    rooms[i].responsible = obj.getInt("responsible");
+                    rooms[i].classType = obj.getInt("classType");
+
+                    roomToIndex.put(rooms[i].classNumber, i);
+                }
+
+            } catch (Exception e) {
+                loge(e);
+            }
+        }).start();
 
         new Thread(() -> {
             long start = System.currentTimeMillis() - 2592000000L; // 30 days
             long end = System.currentTimeMillis() + 2592000000L;
-            schedule = connect("https://shproj2020.herokuapp.com/schedule?startTime=" + start + "&endTime=" + end,
+            schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
                     null);
 
-            String teachers = connect("https://shproj2020.herokuapp.com/get_teacher_list", null);
+            String s = connect("get_teacher_list", null);
 
             try {
-                JSONArray tchr = new JSONArray(teachers);
+                JSONArray tchr = new JSONArray(s);
                 JSONObject obj;
-                this.teachers = new HashMap<>();
+                teachers = new HashMap<>();
                 for (int i = 0; i < tchr.length(); i++) {
                     obj = tchr.getJSONObject(i);
-                    this.teachers.put(obj.getInt("prsId"), obj.getString("fio"));
+                    teachers.put(obj.getInt("prsId"), obj.getString("fio"));
                 }
 
                 JSONArray array = new JSONArray(schedule);
@@ -78,22 +118,32 @@ public class MainActivity extends AppCompatActivity {
                     reservations[i].customerId = obj.getInt("customerId");
                     reservations[i].startTime = obj.getLong("startTime");
                     reservations[i].endTime = obj.getLong("endTime");
+                    log("start " + new Date(reservations[i].startTime) + "\nend " + new Date(reservations[i].endTime));
                     reservations[i].reason = obj.getString("reason");
                     reservations[i].reservationId = obj.getInt("reservationId");
                     reservations[i].teacherId = obj.getInt("teacherId");
                 }
                 runOnUiThread(() -> {
+                    for (PageFragment fragment : fragments) {
+                        LinkedList<Reservation> list = new LinkedList<>();
+                        long fragmentTime = fragment.c.getTimeInMillis();
+                        for (Reservation reservation : reservations) {
+                            if (reservation.startTime >= fragmentTime && reservation.startTime < fragmentTime + oneDay
+                                    || reservation.startTime < fragmentTime && reservation.endTime > fragmentTime) {
+                                list.add(reservation);
+                            }
+                        }
 
-//                    ListView lv = MainActivity.this.findViewById(R.id.lv_main);
-
-//                    ArrayAdapter<String> adapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.simple_list_item_1, array);
-//                    lv.setAdapter(adapter);
+                        fragment.list = list.toArray(new Reservation[0]);
+                        fragment.draw();
+                    }
                 });
 
             } catch (Exception e) {
                 loge(e);
             }
         }).start();
+
 
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -102,11 +152,11 @@ public class MainActivity extends AppCompatActivity {
         calendar.set(Calendar.MILLISECOND, 0);
 
         final long EPOCH = 1577826000000L; // 01/01/2020
-        long oneDay = 86400000;
+
         int daysFromBeginning = (int) ((calendar.getTimeInMillis() - EPOCH)/oneDay); // days from 01/01/2020
         log("days from 01/01/2020: " + daysFromBeginning);
 
-        fragments = new PageFragment[daysFromBeginning + 30]; // todo how many days in the future
+        fragments = new PageFragment[daysFromBeginning + 30]; // todo how many days ahead
         long date = EPOCH;
         for (int i = 0; i < fragments.length; i++) {
             fragments[i] = new PageFragment();
@@ -156,7 +206,6 @@ public class MainActivity extends AppCompatActivity {
         if(dayOfWeek == -1)
             dayOfWeek = 6;
         makeDays(daysTV, dayOfWeek);
-
     }
 
     public void makeDays(TextView[] tv, int selected) { // RAR 1.5.1 legacy: okras()
@@ -190,7 +239,11 @@ public class MainActivity extends AppCompatActivity {
                 color = new ForegroundColorSpan(Color.BLACK);
             }
 
-            String s = daysStrings[i] + "\n" + fragments[day - dayOfWeek + i].c.get(Calendar.DAY_OF_MONTH);
+            String s;
+            if(day + i >= dayOfWeek)
+                s = daysStrings[i] + "\n" + fragments[day - dayOfWeek + i].c.get(Calendar.DAY_OF_MONTH);
+            else
+                s = "x\nxx";
             Spannable spans = new SpannableString(s);
             spans.setSpan(new RelativeSizeSpan(1.3f), 0, s.indexOf("\n"), Spanned.SPAN_EXCLUSIVE_INCLUSIVE);
             spans.setSpan(color, 0, s.indexOf("\n"), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -198,6 +251,37 @@ public class MainActivity extends AppCompatActivity {
             spans.setSpan(color, s.indexOf("\n"), s.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             tv[i].setText(spans);
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        if(getSharedPreferences("pref", MODE_PRIVATE).getString("login", "").equals(""))
+            menu.add(0, 0, 0, "Логин").setIcon(R.drawable.login)
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        else {
+            menu.add(0, 1, 0, "Выйти из аккаунта")
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+        }
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if(item.getItemId() == 0) {
+            startActivityForResult(new Intent(this, LoginActivity.class), 0);
+        } else if(item.getItemId() == 1) {
+            getSharedPreferences("pref", 0).edit().putString("login", "").putString("cookie", "").apply();
+            invalidateOptionsMenu();
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if(resultCode == 1) {
+            invalidateOptionsMenu();
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     class MyFragmentPagerAdapter extends FragmentPagerAdapter {
@@ -218,20 +302,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    class Reservation {
+    static class Reservation {
         int reservationId, teacherId, customerId;
         String classNumber, reason;
         long startTime, endTime;
     }
+    static class Room {
+        String classNumber;
+        int seats, classType, responsible;
+    }
 
     static String connect(String url, String query) {
-        return connect(url, query, false);
+        return connect(url, query, false, null);
     }
-    static String connect(String url, String query, boolean ignore) {
+    static String connect(String url, String query, String cookie) {
+        return connect(url, query, false, cookie);
+    }
+    static String connect(String url, String query, boolean ignore, String cookie) {
+        url = URL_HOST + url;
         if(!ignore)
             log("connect " + url + ", query: " + query);
         try {
             HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+            if(cookie != null) {
+                con.setRequestProperty("Cookie", cookie);
+            }
             if (query == null) {
                 con.setRequestMethod("GET");
                 con.connect();
@@ -246,6 +341,13 @@ public class MainActivity extends AppCompatActivity {
 //                log(url);
 //                log("query: '" + query + "'");
                 return "/" + con.getResponseCode();
+            }
+            if(url.contains("login")) {
+                Map<String, List<String>> a = con.getHeaderFields();
+                if(a.containsKey("Set-Cookie")) {
+                    System.out.println(a.get("Set-Cookie").get(0));
+                    return a.get("Set-Cookie").get(0).split(";")[0];
+                }
             }
             if(con.getInputStream() != null) {
                 BufferedReader rd = new BufferedReader(new InputStreamReader(con.getInputStream()));

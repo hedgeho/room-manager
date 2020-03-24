@@ -77,10 +77,12 @@ public class LoginActivity extends AppCompatActivity {
                 }
 
                 new Thread(() -> {
-                    String cookie = connect("login?username=" + login + "&password=" + hexString, null);
+                    String cookie = connect("login?username=" + login + "&password=" + hexString.toString(), null);
                     if(cookie.length() > 4) {
+                        String prsId = connect("get_prs_id", null, cookie);
+
                         getSharedPreferences("pref", MODE_PRIVATE).edit().putString("cookie", cookie)
-                                .putString("login", login).putString("password", pw).apply();
+                                .putString("login", login).putString("password", hexString.toString()).putString("prsId", prsId).apply();
 
                         setResult(1);
                         finish();

@@ -1,6 +1,7 @@
 package com.example.shproj;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Spannable;
@@ -14,6 +15,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,7 +33,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -45,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
     static Map<Integer, String> teachers; //prsId -> fio
     static Room[] rooms;
     static Map<String, Integer> roomToIndex;
+    static Map<Integer, String> roomTypes; // typeId -> typeDescription
     String schedule;
 
     PageFragment[] fragments;
@@ -62,14 +64,23 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        getSharedPreferences("pref", 0).edit().putString("cookie", "").apply();
+        SharedPreferences pref = getSharedPreferences("pref", 0);
+        pref.edit().putString("cookie", "").apply();
 
 //        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        String login = pref.getString("login", ""),
+                pw = pref.getString("password", "");
+
+        if(!login.equals(""))
+            new Thread(() -> {
+                String cookie = connect("login?username=" + login + "&password=" + pw, null);
+                // todo connect response check
+                pref.edit().putString("cookie", cookie).apply();
+            }).start();
 
         new Thread(() -> {
             try {
                 String s = connect("get_rooms_list", null);
-
                 JSONArray array = new JSONArray(s);
                 rooms = new Room[array.length()];
                 roomToIndex = new HashMap<>();
@@ -86,59 +97,34 @@ public class MainActivity extends AppCompatActivity {
                     roomToIndex.put(rooms[i].classNumber, i);
                 }
 
-            } catch (Exception e) {
-                loge(e);
-            }
-        }).start();
+                s = connect("get_room_types_list", null);
+                array = new JSONArray(s);
+                roomTypes = new HashMap<>();
+                for (int i = 0; i < array.length(); i++) {
+                    roomTypes.put(array.getJSONObject(i).getInt("typeId"),
+                            array.getJSONObject(i).getString("typeDescription"));
+                }
 
-        new Thread(() -> {
-            long start = System.currentTimeMillis() - 2592000000L; // 30 days
-            long end = System.currentTimeMillis() + 2592000000L;
-            schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
-                    null);
+                long start = System.currentTimeMillis() - 2592000000L; // 30 days
+                long end = System.currentTimeMillis() + 2592000000L;
+                schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
+                        null);
 
-            String s = connect("get_teacher_list", null);
+                s = connect("get_teacher_list", null);
 
-            try {
                 JSONArray tchr = new JSONArray(s);
-                JSONObject obj;
                 teachers = new HashMap<>();
                 for (int i = 0; i < tchr.length(); i++) {
                     obj = tchr.getJSONObject(i);
                     teachers.put(obj.getInt("prsId"), obj.getString("fio"));
                 }
 
-                JSONArray array = new JSONArray(schedule);
+                refreshSchedule();
 
-                reservations = new Reservation[array.length()];
-                for (int i = 0; i < reservations.length; i++) {
-                    obj = array.getJSONObject(i);
-                    reservations[i] = new Reservation();
-                    reservations[i].classNumber = obj.getString("classNumber");
-                    reservations[i].customerId = obj.getInt("customerId");
-                    reservations[i].startTime = obj.getLong("startTime");
-                    reservations[i].endTime = obj.getLong("endTime");
-                    log("start " + new Date(reservations[i].startTime) + "\nend " + new Date(reservations[i].endTime));
-                    reservations[i].reason = obj.getString("reason");
-                    reservations[i].reservationId = obj.getInt("reservationId");
-                    reservations[i].teacherId = obj.getInt("teacherId");
+                for (Room room: rooms) {
+                    room.typeDescription = roomTypes.get(room.classType);
+                    room.responsibleFio = teachers.get(room.responsible);
                 }
-                runOnUiThread(() -> {
-                    for (PageFragment fragment : fragments) {
-                        LinkedList<Reservation> list = new LinkedList<>();
-                        long fragmentTime = fragment.c.getTimeInMillis();
-                        for (Reservation reservation : reservations) {
-                            if (reservation.startTime >= fragmentTime && reservation.startTime < fragmentTime + oneDay
-                                    || reservation.startTime < fragmentTime && reservation.endTime > fragmentTime) {
-                                list.add(reservation);
-                            }
-                        }
-
-                        fragment.list = list.toArray(new Reservation[0]);
-                        fragment.draw();
-                    }
-                });
-
             } catch (Exception e) {
                 loge(e);
             }
@@ -208,7 +194,48 @@ public class MainActivity extends AppCompatActivity {
         makeDays(daysTV, dayOfWeek);
     }
 
-    public void makeDays(TextView[] tv, int selected) { // RAR 1.5.1 legacy: okras()
+    void refreshSchedule() {
+        try {
+            JSONArray array = new JSONArray(schedule);
+            JSONObject obj;
+
+            reservations = new Reservation[array.length()];
+            for (int i = 0; i < reservations.length; i++) {
+                obj = array.getJSONObject(i);
+                reservations[i] = new Reservation();
+                reservations[i].classNumber = obj.getString("classNumber");
+                reservations[i].customerId = obj.getInt("customerId");
+                reservations[i].startTime = obj.getLong("startTime");
+                reservations[i].endTime = obj.getLong("endTime");
+                reservations[i].reason = obj.getString("reason");
+                reservations[i].reservationId = obj.getInt("reservationId");
+                reservations[i].teacherId = obj.getInt("teacherId");
+            }
+            for (Reservation reservation : reservations) {
+                Object object = roomToIndex.get(reservation.classNumber);
+                reservation.room = rooms[(int) object];
+            }
+            runOnUiThread(() -> {
+                for (PageFragment fragment : fragments) {
+                    LinkedList<Reservation> list = new LinkedList<>();
+                    long fragmentTime = fragment.c.getTimeInMillis();
+                    for (Reservation reservation : reservations) {
+                        if (reservation.startTime >= fragmentTime && reservation.startTime < fragmentTime + oneDay
+                                || reservation.startTime < fragmentTime && reservation.endTime > fragmentTime) {
+                            list.add(reservation);
+                        }
+                    }
+
+                    fragment.list = list.toArray(new Reservation[0]);
+                    fragment.draw();
+                }
+            });
+        } catch (Exception e) {
+            loge(e);
+        }
+    }
+
+    void makeDays(TextView[] tv, int selected) { // RAR 1.5.1 legacy: okras()
         for (int i = 0; i < 7; i++) {
             if(tv[i] == null) {
                 tv[i] = new TextView(this);
@@ -259,7 +286,9 @@ public class MainActivity extends AppCompatActivity {
             menu.add(0, 0, 0, "Логин").setIcon(R.drawable.login)
                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         else {
-            menu.add(0, 1, 0, "Выйти из аккаунта")
+            menu.add(0, 1, 0, "Забронировать").setIcon(getDrawable(R.drawable.add)).
+                    setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+            menu.add(0, 2, 0, "Выйти из аккаунта")
                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         }
         return super.onCreateOptionsMenu(menu);
@@ -267,9 +296,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if(item.getItemId() == 0) {
+        if (item.getItemId() == 0) {
             startActivityForResult(new Intent(this, LoginActivity.class), 0);
         } else if(item.getItemId() == 1) {
+            if(teachers != null)
+                startActivityForResult(new Intent(this, AddActivity.class), 1);
+            else
+                Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
+        } else if(item.getItemId() == 2) {
             getSharedPreferences("pref", 0).edit().putString("login", "").putString("cookie", "").apply();
             invalidateOptionsMenu();
         }
@@ -278,8 +312,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        if(resultCode == 1) {
+        if(requestCode == 0 && resultCode == 1) {
             invalidateOptionsMenu();
+        }
+        if(requestCode == 1 && resultCode == 1) {
+            new Thread(() -> {
+                long start = System.currentTimeMillis() - 2592000000L; // 30 days
+                long end = System.currentTimeMillis() + 2592000000L;
+                schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
+                        null);
+                refreshSchedule();
+            }).start();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -305,11 +348,13 @@ public class MainActivity extends AppCompatActivity {
     static class Reservation {
         int reservationId, teacherId, customerId;
         String classNumber, reason;
+        Room room;
         long startTime, endTime;
     }
     static class Room {
         String classNumber;
         int seats, classType, responsible;
+        String typeDescription, responsibleFio;
     }
 
     static String connect(String url, String query) {
@@ -337,7 +382,7 @@ public class MainActivity extends AppCompatActivity {
                 con.connect();
             }
             if(con.getResponseCode() != 200) {
-                log("connect failed, code " + con.getResponseCode() + ", message: " + con.getResponseMessage());
+                loge("connect failed, code " + con.getResponseCode() + ", message: " + con.getResponseMessage());
 //                log(url);
 //                log("query: '" + query + "'");
                 return "/" + con.getResponseCode();

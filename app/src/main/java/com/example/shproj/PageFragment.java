@@ -33,7 +33,7 @@ public class PageFragment extends Fragment {
 
     private int mode = 0;
     private final static int MODE_DEFAULT = 0;
-    private final static int MODE_ROOMS = 1;
+//    private final static int MODE_ROOMS = 1;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -51,6 +51,8 @@ public class PageFragment extends Fragment {
         if(list.length == 0) {
             v.findViewById(R.id.tv_no).setVisibility(View.VISIBLE);
             lv.setVisibility(View.INVISIBLE);
+        } else if(list.length == 1) {
+            lv.expandGroup(0);
         }
 
         return v;
@@ -67,6 +69,9 @@ public class PageFragment extends Fragment {
             } else {
                 getView().findViewById(R.id.tv_no).setVisibility(View.INVISIBLE);
                 lv.setVisibility(View.VISIBLE);
+                if(list.length == 1) {
+                    lv.expandGroup(0);
+                }
             }
         }
     }
@@ -218,7 +223,7 @@ public class PageFragment extends Fragment {
         Reservation[] array = roomList[index];
         while(i < array.length) {
             i++;
-            while(i < array.length && array[i].startTime - array[i-1].endTime > 60000) {
+            while(i < array.length && array[i].startTime - array[i-1].endTime > 15*60000) {
                 result.append(millisToTime(array[i - 1].startTime)).append("-").append(millisToTime(array[i - 1].endTime)).append(", ");
                 i++;
             }
@@ -227,7 +232,7 @@ public class PageFragment extends Fragment {
                 break;
             }
             start = millisToTime(array[i-1].startTime);
-            while(i < array.length && array[i].startTime - array[i-1].endTime <= 60000) {
+            while(i < array.length && array[i].startTime - array[i-1].endTime <= 15*60000) {
                 end = millisToTime(array[i].endTime);
                 i++;
             }

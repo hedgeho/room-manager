@@ -1,9 +1,11 @@
 package com.example.shproj;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +19,7 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.Calendar;
@@ -24,7 +27,6 @@ import java.util.LinkedList;
 
 import static com.example.shproj.MainActivity.Reservation;
 import static com.example.shproj.MainActivity.connect;
-import static com.example.shproj.MainActivity.log;
 import static com.example.shproj.MainActivity.reservations;
 import static com.example.shproj.MainActivity.rooms;
 
@@ -42,7 +44,6 @@ public class AddActivity extends AppCompatActivity {
         setContentView(R.layout.activity_add);
         setTitle("Бронирование");
 
-        getSupportActionBar().setHomeButtonEnabled(true);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         ListView lv = findViewById(R.id.lv_rooms);
@@ -117,7 +118,7 @@ public class AddActivity extends AppCompatActivity {
                     new Thread(() -> {
                         SharedPreferences pref = getSharedPreferences("pref", 0);
                         String response = connect("reserve", "classNumber=" + rooms[selectedRoom].classNumber +
-                                "&teacherId=" + pref.getString("prsId", "") + "&reason=" + reason +
+                                "&teacherId=" + pref.getInt("prsId", 0) + "&reason=" + reason +
                                 "&startTime=" + start + "&endTime=" + end, pref.getString("cookie", ""));
                         if(!response.equals("success"))
                             runOnUiThread(() -> Toast.makeText(this, "Что-то пошло не так", Toast.LENGTH_SHORT).show());
@@ -128,6 +129,7 @@ public class AddActivity extends AppCompatActivity {
                 }
             }
             mode++;
+            invalidateOptionsMenu();
         });
 
         CalendarView calendar = findViewById(R.id.calendarView);
@@ -171,7 +173,9 @@ public class AddActivity extends AppCompatActivity {
         c1.set(Calendar.HOUR_OF_DAY, picker1.getHour());
         c1.set(Calendar.MINUTE, picker1.getMinute());
 
-        if(c.getTimeInMillis() > c1.getTimeInMillis()) {
+        if(c.getTimeInMillis() < System.currentTimeMillis()) {
+            return "Выберите предстоящее время";
+        } else if(c.getTimeInMillis() > c1.getTimeInMillis()) {
             return "Время окончания меньше времени начала";
         } else if(c.getTimeInMillis() + 5*60000 > c1.getTimeInMillis())
             return "Мероприятие не может быть короче пяти минут";
@@ -203,9 +207,22 @@ public class AddActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.clear();
+        if(mode == 0)
+            menu.add(0, 0, 0, "Добавить класс").setIcon(R.drawable.add)
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if(item.getItemId() == android.R.id.home)
             onBackPressed();
+        else if(item.getItemId() == 0) {
+            startActivity(new Intent(this, AddRoomActivity.class));
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -216,16 +233,38 @@ public class AddActivity extends AppCompatActivity {
                 findViewById(R.id.screen_date).setVisibility(View.INVISIBLE);
                 findViewById(R.id.screen_room).setVisibility(View.VISIBLE);
                 mode--;
+                invalidateOptionsMenu();
                 showButton();
                 break;
             case 2:
                 findViewById(R.id.screen_time).setVisibility(View.INVISIBLE);
                 findViewById(R.id.screen_date).setVisibility(View.VISIBLE);
                 mode--;
+                invalidateOptionsMenu();
                 showButton();
                 break;
             default:
                 super.onBackPressed();
+        }
+    }
+
+    String formatSeats(int seats) {
+        if(seats >= 5 && seats <= 20)
+            return "мест";
+        switch (seats%10) {
+            case 1:
+                return "место";
+            case 2:
+            case 3:
+            case 4:
+                return "места";
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
+            default:
+                return "мест";
         }
     }
 
@@ -255,12 +294,16 @@ public class AddActivity extends AppCompatActivity {
             TextView tv = view.findViewById(R.id.tv_roomnumber);
             tv.setText(rooms[position].classNumber);
             tv = view.findViewById(R.id.tv_roomtype);
-            log("description: " + rooms[position].typeDescription);
             tv.setText(rooms[position].typeDescription);
             tv = view.findViewById(R.id.tv_seats);
-            tv.setText(rooms[position].seats + " мест");
+            tv.setText(rooms[position].seats + " " + formatSeats(rooms[position].seats));
             tv = view.findViewById(R.id.tv_responsible);
-            tv.setText(rooms[position].responsibleFio);
+            String fio = rooms[position].responsibleFio;
+            String[] words = fio.split(" ");
+            if(words.length == 3) {
+                fio = words[0] + " " + words[1].charAt(0) + ". " + words[2].charAt(0) + ".";
+            }
+            tv.setText(fio);
             view.setOnClickListener(v -> {
                 TextView room = findViewById(R.id.tv_selected);
                 room.setText(rooms[position].classNumber);
@@ -274,6 +317,18 @@ public class AddActivity extends AppCompatActivity {
                 } else {
                     showButton();
                 }
+            });
+            view.setLongClickable(true);
+            view.setOnLongClickListener(v -> {
+                AlertDialog.Builder builder = new AlertDialog.Builder(AddActivity.this);
+                builder.setTitle("Предупреждение");
+                builder.setMessage("Удалить класс?");
+                builder.setPositiveButton("Да", (a, b) -> {
+                    // todo delete_room request
+                });
+                builder.setNegativeButton("отмена", null);
+                builder.show();
+                return true;
             });
             return view;
         }

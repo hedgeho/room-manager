@@ -24,28 +24,28 @@
         android:layout_marginEnd="8dp"
         android:text="31 место"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tv_roomtype" />
+        app:layout_constraintTop_toTopOf="@+id/tv_responsible" />
 
     <TextView
         android:id="@+id/tv_roomtype"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp"
         android:text="класс информатики"
+        app:layout_constraintStart_toEndOf="@+id/tv_roomnumber"
+        app:layout_constraintTop_toBottomOf="@+id/tv_roomnumber" />
+
+    <TextView
+        android:id="@+id/tv_responsible"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:gravity="right|end"
+        android:text="Житомирский М. С."
         app:layout_constraintBottom_toBottomOf="@+id/tv_roomnumber"
         app:layout_constraintEnd_toStartOf="@+id/tv_seats"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toEndOf="@+id/tv_roomnumber"
         app:layout_constraintTop_toTopOf="@+id/tv_roomnumber" />
-
-    <TextView
-        android:id="@+id/tv_responsible"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:text="ответственный: Житомирский М. С."
-        app:layout_constraintStart_toStartOf="@+id/tv_roomnumber"
-        app:layout_constraintTop_toBottomOf="@+id/tv_roomnumber" />
 </androidx.constraintlayout.widget.ConstraintLayout>

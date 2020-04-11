@@ -36,6 +36,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
@@ -74,13 +75,36 @@ public class MainActivity extends AppCompatActivity {
         if(!login.equals(""))
             new Thread(() -> {
                 String cookie = connect("login?username=" + login + "&password=" + pw, null);
-                // todo connect response check
-                pref.edit().putString("cookie", cookie).apply();
+                int errorCount = pref.getInt("errorCount", 0),
+                        count = pref.getInt("requestCount", 0);
+                if(cookie.length() < 5) {
+                    if(cookie.length() == 4 && Integer.parseInt(cookie.substring(1)) < 500) {
+                        runOnUiThread(() -> {
+                                Toast.makeText(this, "Неверный пароль", Toast.LENGTH_SHORT).show();
+                                invalidateOptionsMenu();
+                        });
+                        pref.edit().putString("login", "").putString("cookie", "").apply();
+                    } else {
+                        errorCount++;
+                        runOnUiThread(() ->
+                                Toast.makeText(this, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show());
+                    }
+                } else {
+                    pref.edit().putString("cookie", cookie).apply();
+                }
+                count++;
+                log("error percent: " + String.format(Locale.getDefault(), "%.2f%%", (double) errorCount/count*100));
+                pref.edit().putInt("errorCount", errorCount).putInt("requestCount", count).apply();
             }).start();
 
         new Thread(() -> {
             try {
                 String s = connect("get_rooms_list", null);
+                if(s.length() < 5 && !s.replaceAll(" ", "").equals("[]")) {
+                    runOnUiThread(() ->
+                            Toast.makeText(this, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show());
+                    return;
+                }
                 JSONArray array = new JSONArray(s);
                 rooms = new Room[array.length()];
                 roomToIndex = new HashMap<>();
@@ -161,7 +185,6 @@ public class MainActivity extends AppCompatActivity {
         pager = findViewById(R.id.pager);
         if(pager.getAdapter() == null) {
             MyFragmentPagerAdapter pagerAdapter = new MyFragmentPagerAdapter(getSupportFragmentManager());
-            log("pager adapter created");
             pager.setAdapter(pagerAdapter);
         }
         pager.setCurrentItem(day);
@@ -321,7 +344,10 @@ public class MainActivity extends AppCompatActivity {
                 long end = System.currentTimeMillis() + 2592000000L;
                 schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
                         null);
-                refreshSchedule();
+                if(schedule.length() < 5) {
+                    Toast.makeText(this, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show();
+                } else
+                    refreshSchedule();
             }).start();
         }
         super.onActivityResult(requestCode, resultCode, data);
@@ -382,7 +408,7 @@ public class MainActivity extends AppCompatActivity {
                 con.connect();
             }
             if(con.getResponseCode() != 200) {
-                loge("connect failed, code " + con.getResponseCode() + ", message: " + con.getResponseMessage());
+                loge(url.replaceAll(URL_HOST, "") + " connect failed, code " + con.getResponseCode() + ", message: " + con.getResponseMessage());
 //                log(url);
 //                log("query: '" + query + "'");
                 return "/" + con.getResponseCode();

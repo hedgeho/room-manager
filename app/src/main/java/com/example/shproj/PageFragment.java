@@ -38,7 +38,6 @@ public class PageFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        log("oncreateview");
         View v = inflater.inflate(R.layout.fragment_page, container, false);
 
         if(list == null) {

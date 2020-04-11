@@ -1,5 +1,6 @@
 package com.example.shproj;
 
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
@@ -27,7 +28,6 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        getSupportActionBar().setHomeButtonEnabled(true);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         btn = findViewById(R.id.btn_go);
@@ -78,16 +78,26 @@ public class LoginActivity extends AppCompatActivity {
 
                 new Thread(() -> {
                     String cookie = connect("login?username=" + login + "&password=" + hexString.toString(), null);
+                    SharedPreferences pref = getSharedPreferences("pref", 0);
+                    int errorCount = pref.getInt("errorCount", 0),
+                            count = pref.getInt("requestCount", 0);
                     if(cookie.length() > 4) {
-                        String prsId = connect("get_prs_id", null, cookie);
+                        count++;
+                        pref.edit().putInt("requestCount", count).apply();
+                        int prsId = Integer.parseInt(connect("get_prs_id", null, cookie));
 
                         getSharedPreferences("pref", MODE_PRIVATE).edit().putString("cookie", cookie)
-                                .putString("login", login).putString("password", hexString.toString()).putString("prsId", prsId).apply();
+                                .putString("login", login).putString("password", hexString.toString()).putInt("prsId", prsId).apply();
 
                         setResult(1);
                         finish();
-                    } else {
+                    } else if(cookie.length() == 4 && Integer.parseInt(cookie.substring(1)) < 500) {
                         runOnUiThread(() -> Toast.makeText(this, "Неверный пароль", Toast.LENGTH_SHORT).show());
+                    } else {
+                        errorCount++;
+                        count++;
+                        pref.edit().putInt("errorCount", errorCount).putInt("requestCount", count).apply();
+                        runOnUiThread(() -> Toast.makeText(this, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show());
                     }
                 }).start();
             } catch (Exception e) {

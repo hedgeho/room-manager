@@ -1,5 +1,7 @@
 package com.example.shproj;
 
+import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -11,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.BaseAdapter;
 import android.widget.CalendarView;
 import android.widget.EditText;
@@ -77,6 +80,7 @@ public class AddActivity extends AppCompatActivity {
                 findViewById(R.id.screen_room).setVisibility(View.INVISIBLE);
                 findViewById(R.id.screen_date).setVisibility(View.VISIBLE);
                 reason = et.getText().toString();
+                hideKeyboard(this, et);
             } else if(mode == 1) {
                 LinkedList<Reservation> list = new LinkedList<>();
                 long sum = 0, start, end;
@@ -248,7 +252,7 @@ public class AddActivity extends AppCompatActivity {
         }
     }
 
-    String formatSeats(int seats) {
+    static String formatSeats(int seats) {
         if(seats >= 5 && seats <= 20)
             return "мест";
         switch (seats%10) {
@@ -294,7 +298,14 @@ public class AddActivity extends AppCompatActivity {
             TextView tv = view.findViewById(R.id.tv_roomnumber);
             tv.setText(rooms[position].classNumber);
             tv = view.findViewById(R.id.tv_roomtype);
-            tv.setText(rooms[position].typeDescription);
+            StringBuilder types = new StringBuilder();
+            for (int i = 0; i < rooms[position].typeDescriptions.length; i++) {
+                types.append(rooms[position].typeDescriptions[i]).append("; ");
+            }
+            if(types.length() > 0) {
+                types.delete(types.length()-2, types.length());
+            }
+            tv.setText(types.toString());
             tv = view.findViewById(R.id.tv_seats);
             tv.setText(rooms[position].seats + " " + formatSeats(rooms[position].seats));
             tv = view.findViewById(R.id.tv_responsible);
@@ -332,5 +343,9 @@ public class AddActivity extends AppCompatActivity {
             });
             return view;
         }
+    }
+    private static void hideKeyboard(Context context, View view) {
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
 }

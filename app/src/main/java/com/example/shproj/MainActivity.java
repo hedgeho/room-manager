@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
     static Reservation[] reservations;
     static Map<Integer, String> teachers; //prsId -> fio
     static Room[] rooms;
-    static Map<String, Integer> roomToIndex;
+    static Map<String, Integer> nameToIndex;
     static Map<Integer, String> roomTypes; // typeId -> typeDescription
     String schedule;
 
@@ -105,9 +105,9 @@ public class MainActivity extends AppCompatActivity {
                             Toast.makeText(this, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show());
                     return;
                 }
-                JSONArray array = new JSONArray(s);
+                JSONArray array = new JSONArray(s), classTypes;
                 rooms = new Room[array.length()];
-                roomToIndex = new HashMap<>();
+                nameToIndex = new HashMap<>();
                 JSONObject obj;
                 for (int i = 0; i < array.length(); i++) {
                     rooms[i] = new Room();
@@ -116,9 +116,14 @@ public class MainActivity extends AppCompatActivity {
                     rooms[i].classNumber = obj.getString("classNumber");
                     rooms[i].seats = obj.getInt("seats");
                     rooms[i].responsible = obj.getInt("responsible");
-                    rooms[i].classType = obj.getInt("classType");
+                    classTypes = obj.getJSONArray("classTypes");
+                    rooms[i].classTypes = new int[classTypes.length()];
+                    for (int j = 0; j < classTypes.length(); j++) {
+                        rooms[i].classTypes[j] = classTypes.getInt(j);
+                    }
+                    rooms[i].id = i;
 
-                    roomToIndex.put(rooms[i].classNumber, i);
+                    nameToIndex.put(rooms[i].classNumber, i);
                 }
 
                 s = connect("get_room_types_list", null);
@@ -146,7 +151,10 @@ public class MainActivity extends AppCompatActivity {
                 refreshSchedule();
 
                 for (Room room: rooms) {
-                    room.typeDescription = roomTypes.get(room.classType);
+                    room.typeDescriptions = new String[room.classTypes.length];
+                    for (int i = 0; i < room.classTypes.length; i++) {
+                        room.typeDescriptions[i] = roomTypes.get(room.classTypes[i]);
+                    }
                     room.responsibleFio = teachers.get(room.responsible);
                 }
             } catch (Exception e) {
@@ -235,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
                 reservations[i].teacherId = obj.getInt("teacherId");
             }
             for (Reservation reservation : reservations) {
-                Object object = roomToIndex.get(reservation.classNumber);
+                Object object = nameToIndex.get(reservation.classNumber);
                 reservation.room = rooms[(int) object];
             }
             runOnUiThread(() -> {
@@ -290,10 +298,10 @@ public class MainActivity extends AppCompatActivity {
             }
 
             String s;
-            if(day + i >= dayOfWeek)
+            if(day + i >= dayOfWeek && day + i - dayOfWeek < fragments.length)
                 s = daysStrings[i] + "\n" + fragments[day - dayOfWeek + i].c.get(Calendar.DAY_OF_MONTH);
             else
-                s = "x\nxx";
+                s = " \n  ";
             Spannable spans = new SpannableString(s);
             spans.setSpan(new RelativeSizeSpan(1.3f), 0, s.indexOf("\n"), Spanned.SPAN_EXCLUSIVE_INCLUSIVE);
             spans.setSpan(color, 0, s.indexOf("\n"), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -323,7 +331,7 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(new Intent(this, LoginActivity.class), 0);
         } else if(item.getItemId() == 1) {
             if(teachers != null)
-                startActivityForResult(new Intent(this, AddActivity.class), 1);
+                startActivityForResult(new Intent(this, AddActivityTest.class), 1);
             else
                 Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
         } else if(item.getItemId() == 2) {
@@ -378,9 +386,10 @@ public class MainActivity extends AppCompatActivity {
         long startTime, endTime;
     }
     static class Room {
-        String classNumber;
-        int seats, classType, responsible;
-        String typeDescription, responsibleFio;
+        int id, seats, responsible;
+        String classNumber, responsibleFio;
+        int[] classTypes;
+        String[] typeDescriptions;
     }
 
     static String connect(String url, String query) {

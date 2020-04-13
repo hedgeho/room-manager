@@ -100,15 +100,17 @@ public class AddRoomActivity extends AppCompatActivity {
             room.seats = Integer.parseInt(et_seats.getText().toString());
             room.responsible = getSharedPreferences("pref", 0).getInt("prsId", 0);
             room.responsibleFio = teachers.get(room.responsible);
-            room.classType = roomTypeIDs[selectedItem];
-            room.typeDescription = roomTypeDescriptions[selectedItem];
+//            room.classType = roomTypeIDs[selectedItem];
+//            room.typeDescription = roomTypeDescriptions[selectedItem];
+            room.typeDescriptions = new String[0];
+            room.classTypes = new int[0];
+            room.id = rooms.length;
             tmp[rooms.length] = room;
             rooms = tmp;
 
             new Thread(() -> {
                 String response = connect("add_room", "classNumber=" + room.classNumber +
-                       "&seats=" + room.seats +
-                        "&classType=" + room.classType + "&responsible=" + room.responsible,
+                       "&seats=" + room.seats + "&responsible=" + room.responsible,
                         getSharedPreferences("pref", 0).getString("cookie", ""));
                 if(response.length() > 0 && response.charAt(0) == '/')
                     runOnUiThread(() -> Toast.makeText(this, "Ошибка", Toast.LENGTH_SHORT).show());

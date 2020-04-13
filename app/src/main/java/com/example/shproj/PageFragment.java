@@ -17,9 +17,8 @@ import java.util.LinkedList;
 import java.util.Locale;
 
 import static com.example.shproj.MainActivity.Room;
-import static com.example.shproj.MainActivity.log;
 import static com.example.shproj.MainActivity.oneDay;
-import static com.example.shproj.MainActivity.roomToIndex;
+import static com.example.shproj.MainActivity.nameToIndex;
 import static com.example.shproj.MainActivity.rooms;
 import static com.example.shproj.MainActivity.teachers;
 
@@ -84,7 +83,7 @@ public class PageFragment extends Fragment {
             lists[i] = new LinkedList<Reservation>();
         }
         for (Reservation reservation : list) {
-            Object index = roomToIndex.get(reservation.classNumber);
+            Object index = nameToIndex.get(reservation.classNumber);
             if(index != null) {
                 lists[(int) index].add(reservation);
             }

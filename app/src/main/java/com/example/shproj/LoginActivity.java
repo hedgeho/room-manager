@@ -1,7 +1,6 @@
 package com.example.shproj;
 
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -46,10 +45,10 @@ public class LoginActivity extends AppCompatActivity {
                     btn.setEnabled(false);
                     log("no data");
 //                    btn.setBackground();
-                    btn.setBackgroundColor(getColor(android.R.color.darker_gray));
+//                    btn.setBackgroundColor(getColor(android.R.color.darker_gray));
                 } else {
                     btn.setEnabled(true);
-                    btn.setBackgroundColor(Color.RED);
+//                    btn.setBackgroundColor(Color.RED);
                 }
             }
 

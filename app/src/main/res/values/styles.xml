@@ -7,6 +7,9 @@
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorPrimary</item>
         <item name="android:windowIsFloating">false</item>
+        <item name="android:timePickerStyle">@style/AppTheme</item>
+        <item name="android:timePickerMode">spinner</item>
+        <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Filter</item>щ
     </style>
 
 <!--    <style name="Theme.MaterialComponents.Light.DarkActionBar">-->

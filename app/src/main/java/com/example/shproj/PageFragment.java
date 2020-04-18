@@ -20,7 +20,7 @@ import static com.example.shproj.MainActivity.Room;
 import static com.example.shproj.MainActivity.oneDay;
 import static com.example.shproj.MainActivity.nameToIndex;
 import static com.example.shproj.MainActivity.rooms;
-import static com.example.shproj.MainActivity.teachers;
+import static com.example.shproj.MainActivity.teachersMap;
 
 
 public class PageFragment extends Fragment {
@@ -196,9 +196,9 @@ public class PageFragment extends Fragment {
                 tv.setText(time);
                 tv = view.findViewById(R.id.tv_person);
                 if (roomList[groupPosition][childPosition].customerId == 0) {
-                    tv.setText(teachers.get(roomList[groupPosition][childPosition].teacherId));
+                    tv.setText(formatFio(teachersMap.get(roomList[groupPosition][childPosition].teacherId).fio));
                 } else
-                    tv.setText(teachers.get(roomList[groupPosition][childPosition].customerId));
+                    tv.setText(formatFio(teachersMap.get(roomList[groupPosition][childPosition].customerId).fio));
             }/* else if(mode == MODE_ROOMS) {
 //                tv.setText();
             }*/
@@ -211,7 +211,6 @@ public class PageFragment extends Fragment {
             return true;
         }
     }
-
 
     private String format(int index) {
         int i = 0;
@@ -237,6 +236,14 @@ public class PageFragment extends Fragment {
             result.append(start).append("-").append(end).append(", ");
         }
         return result.subSequence(0, result.length()-2).toString();
+    }
+
+    static String formatFio(String fio) {
+        String[] words = fio.split(" ");
+        if(words.length < 3)
+            return fio;
+        else
+            return words[0] + " " + words[1].charAt(0) + ". " + words[2].charAt(0) + ".";
     }
 
     private Calendar calendar = Calendar.getInstance();

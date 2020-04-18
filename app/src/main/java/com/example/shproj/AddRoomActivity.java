@@ -24,12 +24,12 @@ import java.util.HashMap;
 import static com.example.shproj.MainActivity.connect;
 import static com.example.shproj.MainActivity.loge;
 import static com.example.shproj.MainActivity.roomTypes;
+import static com.example.shproj.MainActivity.roomTypesMap;
 import static com.example.shproj.MainActivity.rooms;
-import static com.example.shproj.MainActivity.teachers;
+import static com.example.shproj.MainActivity.teachersMap;
 
 public class AddRoomActivity extends AppCompatActivity {
 
-    Integer[] roomTypeIDs;
     String[] roomTypeDescriptions;
     int selectedItem = -1;
     EditText et_roomnum, et_seats;
@@ -41,8 +41,7 @@ public class AddRoomActivity extends AppCompatActivity {
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        roomTypeIDs = roomTypes.keySet().toArray(new Integer[0]);
-        roomTypeDescriptions = roomTypes.values().toArray(new String[0]);
+        roomTypeDescriptions = roomTypesMap.values().toArray(new String[0]);
 
         et_roomnum = findViewById(R.id.et_roomnum);
         et_roomnum.addTextChangedListener(new TextWatcher() {
@@ -99,7 +98,7 @@ public class AddRoomActivity extends AppCompatActivity {
             room.classNumber = et_roomnum.getText().toString();
             room.seats = Integer.parseInt(et_seats.getText().toString());
             room.responsible = getSharedPreferences("pref", 0).getInt("prsId", 0);
-            room.responsibleFio = teachers.get(room.responsible);
+            room.teacherResponsible = teachersMap.get(room.responsible);
 //            room.classType = roomTypeIDs[selectedItem];
 //            room.typeDescription = roomTypeDescriptions[selectedItem];
             room.typeDescriptions = new String[0];
@@ -163,13 +162,15 @@ public class AddRoomActivity extends AppCompatActivity {
                             s = connect("get_room_types_list", null);
                             try {
                                 JSONArray array = new JSONArray(s);
-                                roomTypes = new HashMap<>();
+                                roomTypes = new MainActivity.RoomType[array.length()];
+                                roomTypesMap = new HashMap<>();
                                 for (int i = 0; i < array.length(); i++) {
-                                    roomTypes.put(array.getJSONObject(i).getInt("typeId"),
-                                            array.getJSONObject(i).getString("typeDescription"));
+                                    roomTypes[i] = new MainActivity.RoomType();
+                                    roomTypes[i].typeId = array.getJSONObject(i).getInt("typeId");
+                                    roomTypes[i].description = array.getJSONObject(i).getString("typeDescription");
+                                    roomTypesMap.put(roomTypes[i].typeId, roomTypes[i].description);
                                 }
-                                roomTypeIDs = roomTypes.keySet().toArray(new Integer[0]);
-                                roomTypeDescriptions = roomTypes.values().toArray(new String[0]);
+                                roomTypeDescriptions = roomTypesMap.values().toArray(new String[0]);
                                 runOnUiThread(() -> {
                                     ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,
                                             roomTypeDescriptions);

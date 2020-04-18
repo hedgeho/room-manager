@@ -51,15 +51,13 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <com.google.android.material.button.MaterialButton
-        android:theme="@style/Theme.MaterialComponents"
-        style="@style/Widget.MaterialComponents.Button"
-        android:backgroundTint="@color/colorPrimary"
         android:id="@+id/btn_go"
+        style="@style/Widget.MaterialComponents.Button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="64dp"
-        android:text="Войти"
         android:enabled="false"
+        android:text="Войти"
         android:textColor="#FFFFFF"
         app:layout_constraintEnd_toEndOf="@+id/et_password"
         app:layout_constraintStart_toStartOf="@+id/et_password"

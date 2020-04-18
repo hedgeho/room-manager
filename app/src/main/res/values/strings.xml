@@ -1,3 +1,7 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">shproj</string>
+    <string name="mtrl_picker_save" tools:override="true">сохранить</string>
+    <string name="mtrl_picker_range_header_unselected" tools:override="true">Дата начала - Дата окончания</string>
+    <string name="mtrl_picker_range_header_only_start_selected" tools:override="true">%1$s - Дата окончания</string>
+    <string name="mtrl_picker_range_header_only_end_selected" tools:override="true">Дата начала - %1$s</string>
 </resources>

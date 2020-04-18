@@ -309,7 +309,7 @@ public class AddActivity extends AppCompatActivity {
             tv = view.findViewById(R.id.tv_seats);
             tv.setText(rooms[position].seats + " " + formatSeats(rooms[position].seats));
             tv = view.findViewById(R.id.tv_responsible);
-            String fio = rooms[position].responsibleFio;
+            String fio = rooms[position].teacherResponsible.fio;
             String[] words = fio.split(" ");
             if(words.length == 3) {
                 fio = words[0] + " " + words[1].charAt(0) + ". " + words[2].charAt(0) + ".";

@@ -1,5 +1,6 @@
 package com.example.shproj;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -32,6 +33,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -44,11 +46,13 @@ public class MainActivity extends AppCompatActivity {
     public static final String URL_HOST = "https://shproj2020.herokuapp.com/";
 
     static Reservation[] reservations;
-    static Map<Integer, String> teachers; //prsId -> fio
     static Room[] rooms;
-    static Map<String, Integer> nameToIndex;
-    static Map<Integer, String> roomTypes; // typeId -> typeDescription
-    String schedule;
+    static RoomType[] roomTypes;
+    static Teacher[] teachers;
+    static Map<Integer, Teacher> teachersMap; //prsId -> teacher
+    static Map<String, Integer> nameToIndex; // roomName -> index in rooms
+    static Map<Integer, String> roomTypesMap; // typeId -> typeDescription
+    static String schedule;
 
     PageFragment[] fragments;
     TextView[] daysTV;
@@ -59,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
 
     final String[] daysStrings = {"пн", "вт", "ср", "чт", "пт", "сб", "вс"};
     final static long oneDay = 86400000;
+    final static int THRESHOLD_AHEAD = 60;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,70 +102,7 @@ public class MainActivity extends AppCompatActivity {
                 pref.edit().putInt("errorCount", errorCount).putInt("requestCount", count).apply();
             }).start();
 
-        new Thread(() -> {
-            try {
-                String s = connect("get_rooms_list", null);
-                if(s.length() < 5 && !s.replaceAll(" ", "").equals("[]")) {
-                    runOnUiThread(() ->
-                            Toast.makeText(this, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show());
-                    return;
-                }
-                JSONArray array = new JSONArray(s), classTypes;
-                rooms = new Room[array.length()];
-                nameToIndex = new HashMap<>();
-                JSONObject obj;
-                for (int i = 0; i < array.length(); i++) {
-                    rooms[i] = new Room();
-                    obj = array.getJSONObject(i);
-
-                    rooms[i].classNumber = obj.getString("classNumber");
-                    rooms[i].seats = obj.getInt("seats");
-                    rooms[i].responsible = obj.getInt("responsible");
-                    classTypes = obj.getJSONArray("classTypes");
-                    rooms[i].classTypes = new int[classTypes.length()];
-                    for (int j = 0; j < classTypes.length(); j++) {
-                        rooms[i].classTypes[j] = classTypes.getInt(j);
-                    }
-                    rooms[i].id = i;
-
-                    nameToIndex.put(rooms[i].classNumber, i);
-                }
-
-                s = connect("get_room_types_list", null);
-                array = new JSONArray(s);
-                roomTypes = new HashMap<>();
-                for (int i = 0; i < array.length(); i++) {
-                    roomTypes.put(array.getJSONObject(i).getInt("typeId"),
-                            array.getJSONObject(i).getString("typeDescription"));
-                }
-
-                long start = System.currentTimeMillis() - 2592000000L; // 30 days
-                long end = System.currentTimeMillis() + 2592000000L;
-                schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
-                        null);
-
-                s = connect("get_teacher_list", null);
-
-                JSONArray tchr = new JSONArray(s);
-                teachers = new HashMap<>();
-                for (int i = 0; i < tchr.length(); i++) {
-                    obj = tchr.getJSONObject(i);
-                    teachers.put(obj.getInt("prsId"), obj.getString("fio"));
-                }
-
-                refreshSchedule();
-
-                for (Room room: rooms) {
-                    room.typeDescriptions = new String[room.classTypes.length];
-                    for (int i = 0; i < room.classTypes.length; i++) {
-                        room.typeDescriptions[i] = roomTypes.get(room.classTypes[i]);
-                    }
-                    room.responsibleFio = teachers.get(room.responsible);
-                }
-            } catch (Exception e) {
-                loge(e);
-            }
-        }).start();
+        new Thread(() -> refreshEverything(this)).start();
 
 
         Calendar calendar = Calendar.getInstance();
@@ -174,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
         int daysFromBeginning = (int) ((calendar.getTimeInMillis() - EPOCH)/oneDay); // days from 01/01/2020
         log("days from 01/01/2020: " + daysFromBeginning);
 
-        fragments = new PageFragment[daysFromBeginning + 30]; // todo how many days ahead
+        fragments = new PageFragment[daysFromBeginning + THRESHOLD_AHEAD]; // todo how many days ahead
         long date = EPOCH;
         for (int i = 0; i < fragments.length; i++) {
             fragments[i] = new PageFragment();
@@ -208,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
                 if(dayOfWeek == -1)
                     dayOfWeek = 6;
                 day = position;
-                log(day + ", dayofweek: " + dayOfWeek);
+//                log(day + ", dayofweek: " + dayOfWeek);
                 makeDays(daysTV, dayOfWeek);
             }
 
@@ -223,6 +165,84 @@ public class MainActivity extends AppCompatActivity {
         if(dayOfWeek == -1)
             dayOfWeek = 6;
         makeDays(daysTV, dayOfWeek);
+    }
+
+    static void refreshEverything(Activity activity) {
+        try {
+            String s = connect("get_rooms_list", null);
+            if (s.length() < 5 && !s.replaceAll(" ", "").equals("[]")) {
+                activity.runOnUiThread(() ->
+                        Toast.makeText(activity, "Проблемы с подключением к серверу", Toast.LENGTH_SHORT).show());
+                return;
+            }
+            JSONArray array = new JSONArray(s), classTypes;
+            rooms = new Room[array.length()];
+            nameToIndex = new HashMap<>();
+            JSONObject obj;
+            for (int i = 0; i < array.length(); i++) {
+                rooms[i] = new Room();
+                obj = array.getJSONObject(i);
+
+                rooms[i].classNumber = obj.getString("classNumber");
+                rooms[i].seats = obj.getInt("seats");
+                rooms[i].responsible = obj.getInt("responsible");
+                classTypes = obj.getJSONArray("classTypes");
+                rooms[i].classTypes = new int[classTypes.length()];
+                for (int j = 0; j < classTypes.length(); j++) {
+                    rooms[i].classTypes[j] = classTypes.getInt(j);
+                }
+
+            }
+            Arrays.sort(rooms, (r1, r2) -> String.CASE_INSENSITIVE_ORDER.compare(r1.classNumber, r2.classNumber));
+            for (int i = 0; i < rooms.length; i++) {
+                rooms[i].id = i;
+                nameToIndex.put(rooms[i].classNumber, i);
+            }
+
+            s = connect("get_room_types_list", null);
+            array = new JSONArray(s);
+            roomTypes = new RoomType[array.length()];
+            roomTypesMap = new HashMap<>();
+            for (int i = 0; i < array.length(); i++) {
+                RoomType type = new RoomType();
+                type.typeId = array.getJSONObject(i).getInt("typeId");
+                type.description = array.getJSONObject(i).getString("typeDescription");
+                roomTypes[i] = type;
+                roomTypesMap.put(type.typeId, type.description);
+            }
+
+            long start = System.currentTimeMillis() - THRESHOLD_AHEAD * oneDay; // 30 days
+            long end = System.currentTimeMillis() + THRESHOLD_AHEAD * oneDay;
+            schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
+                    null);
+
+            s = connect("get_teacher_list", null);
+
+            JSONArray tchr = new JSONArray(s);
+            teachersMap = new HashMap<>();
+            teachers = new Teacher[tchr.length()];
+            for (int i = 0; i < tchr.length(); i++) {
+                obj = tchr.getJSONObject(i);
+                Teacher teacher = new Teacher();
+                teacher.admin = obj.getBoolean("admin");
+                teacher.fio = obj.getString("fio");
+                teacher.personId = obj.getInt("prsId");
+                teacher.info = obj.getString("anotherInfo");
+                teachersMap.put(teacher.personId, teacher);
+                teachers[i] = teacher;
+            }
+
+            if(activity instanceof MainActivity)
+                ((MainActivity) activity).refreshSchedule();
+
+            for (Room room : rooms) {
+                room.typeDescriptions = new String[room.classTypes.length];
+                for (int i = 0; i < room.classTypes.length; i++) {
+                    room.typeDescriptions[i] = roomTypesMap.get(room.classTypes[i]);
+                }
+                room.teacherResponsible = teachersMap.get(room.responsible);
+            }
+        } catch (Exception e) {loge(e);}
     }
 
     void refreshSchedule() {
@@ -319,6 +339,8 @@ public class MainActivity extends AppCompatActivity {
         else {
             menu.add(0, 1, 0, "Забронировать").setIcon(getDrawable(R.drawable.add)).
                     setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+            menu.add(0, 3, 0, "Классы").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+            menu.add(0, 4, 0, "Учителя").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
             menu.add(0, 2, 0, "Выйти из аккаунта")
                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         }
@@ -327,16 +349,35 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == 0) {
-            startActivityForResult(new Intent(this, LoginActivity.class), 0);
-        } else if(item.getItemId() == 1) {
-            if(teachers != null)
-                startActivityForResult(new Intent(this, AddActivityTest.class), 1);
-            else
-                Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
-        } else if(item.getItemId() == 2) {
-            getSharedPreferences("pref", 0).edit().putString("login", "").putString("cookie", "").apply();
-            invalidateOptionsMenu();
+        switch (item.getItemId()) {
+            case 0:
+                startActivityForResult(new Intent(this, LoginActivity.class), 0);
+                break;
+            case 1:
+                if (teachersMap != null)
+                    startActivityForResult(new Intent(this, AddActivityTest.class), 1);
+                else
+                    Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
+                break;
+            case 2:
+                getSharedPreferences("pref", 0).edit().putString("login", "").putString("cookie", "").apply();
+                invalidateOptionsMenu();
+                break;
+            case 3:
+                if (teachersMap != null) {
+                    Intent intent = new Intent(this, AdminActivity.class);
+                    intent.putExtra("type", 0);
+                    startActivity(intent);
+                } else
+                    Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
+                break;
+            case 4:
+                if(teachersMap != null) {
+                    Intent intent = new Intent(this, AdminActivity.class);
+                    intent.putExtra("type", 1);
+                    startActivity(intent);
+                } else
+                    Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -348,8 +389,8 @@ public class MainActivity extends AppCompatActivity {
         }
         if(requestCode == 1 && resultCode == 1) {
             new Thread(() -> {
-                long start = System.currentTimeMillis() - 2592000000L; // 30 days
-                long end = System.currentTimeMillis() + 2592000000L;
+                long start = System.currentTimeMillis() - THRESHOLD_AHEAD*oneDay; // 30 days
+                long end = System.currentTimeMillis() + THRESHOLD_AHEAD*oneDay;
                 schedule = connect("schedule?startTime=" + start + "&endTime=" + end,
                         null);
                 if(schedule.length() < 5) {
@@ -387,9 +428,19 @@ public class MainActivity extends AppCompatActivity {
     }
     static class Room {
         int id, seats, responsible;
-        String classNumber, responsibleFio;
+        String classNumber;
+        Teacher teacherResponsible;
         int[] classTypes;
         String[] typeDescriptions;
+    }
+    static class RoomType {
+        int typeId;
+        String description;
+    }
+    static class Teacher {
+        int personId;
+        String fio, info;
+        boolean admin;
     }
 
     static String connect(String url, String query) {

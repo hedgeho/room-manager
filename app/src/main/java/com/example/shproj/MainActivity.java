@@ -339,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
         else {
             menu.add(0, 1, 0, "Забронировать").setIcon(getDrawable(R.drawable.add)).
                     setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-            menu.add(0, 3, 0, "Классы").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+            menu.add(0, 3, 0, "Кабинеты").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
             menu.add(0, 4, 0, "Учителя").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
             menu.add(0, 2, 0, "Выйти из аккаунта")
                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
@@ -355,7 +355,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case 1:
                 if (teachersMap != null)
-                    startActivityForResult(new Intent(this, AddActivityTest.class), 1);
+                    startActivityForResult(new Intent(this, AddActivity.class), 1);
                 else
                     Toast.makeText(this, "Подождите...", Toast.LENGTH_SHORT).show();
                 break;

@@ -13,7 +13,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
@@ -125,23 +124,26 @@ public class RoomDialog extends DialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         toolbar.setNavigationOnClickListener(v -> dismiss());
-        toolbar.setTitle("Выбор класса");
+        toolbar.setTitle("Выбор кабинета");
         toolbar.inflateMenu(R.menu.dialog_room);
         toolbar.getMenu().getItem(0).setEnabled(false);
         toolbar.setOnMenuItemClickListener(item -> {
-            ((AddActivityTest) getActivity()).refreshRoom(roomSelected);
+            ((AddActivity) getActivity()).refreshRoom(roomSelected);
             dismiss();
             return true;
         });
         view.findViewById(R.id.img_filter).setOnClickListener(v -> {
-            View scene = view.findViewById(R.id.chips_filter);
-            Transition animation = new AutoTransition();
-            TransitionManager.beginDelayedTransition((ViewGroup) view, animation);
-            if(scene.getVisibility() == View.GONE) {
-                scene.setVisibility(View.VISIBLE);
-            } else
-                scene.setVisibility(View.GONE);
+//            View scene = view.findViewById(R.id.chips_filter);
+//            Transition animation = new AutoTransition();
+//            TransitionManager.beginDelayedTransition((ViewGroup) view, animation);
+//            if(scene.getVisibility() == View.GONE) {
+//                scene.setVisibility(View.VISIBLE);
+//            } else
+//                scene.setVisibility(View.GONE);
+            
         });
+        // todo фильтр по типам, по количеству мест, по времени
+
     }
 
     private void refreshFilter() {
@@ -194,7 +196,7 @@ public class RoomDialog extends DialogFragment {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            MainActivity.Room room = list.get(position);
+            final MainActivity.Room room = list.get(position);
             View view;
             if(convertView != null)
                 view = convertView;
@@ -223,19 +225,7 @@ public class RoomDialog extends DialogFragment {
             tv.setText(fio);
             view.setOnClickListener(v -> {
                 et.setText(room.classNumber);
-                roomSelected = position;
-            });
-            view.setLongClickable(true);
-            view.setOnLongClickListener(v -> {
-                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-                builder.setTitle("Предупреждение");
-                builder.setMessage("Удалить класс?");
-                builder.setPositiveButton("Да", (a, b) -> {
-                    // todo delete_room request
-                });
-                builder.setNegativeButton("отмена", null);
-                builder.show();
-                return true;
+                roomSelected = room.id;
             });
             return view;
         }

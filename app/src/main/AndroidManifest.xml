@@ -14,8 +14,6 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
         <activity android:name=".AdminActivity" />
-        <activity android:name=".AddActivityTest" />
-        <activity android:name=".AddRoomActivity" />
         <activity android:name=".AddActivity" />
         <activity android:name=".LoginActivity" />
         <activity android:name=".MainActivity">

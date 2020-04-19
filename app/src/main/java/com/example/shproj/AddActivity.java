@@ -1,60 +1,75 @@
 package com.example.shproj;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Parcel;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.Animation;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.BaseAdapter;
-import android.widget.CalendarView;
+import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ListView;
+import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.util.Pair;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.datepicker.CalendarConstraints;
+import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import java.util.Arrays;
 import java.util.Calendar;
-import java.util.LinkedList;
+import java.util.Locale;
 
-import static com.example.shproj.MainActivity.Reservation;
+import static com.example.shproj.MainActivity.THRESHOLD_AHEAD;
 import static com.example.shproj.MainActivity.connect;
-import static com.example.shproj.MainActivity.reservations;
+import static com.example.shproj.MainActivity.log;
+import static com.example.shproj.MainActivity.loge;
+import static com.example.shproj.MainActivity.oneDay;
 import static com.example.shproj.MainActivity.rooms;
 
 public class AddActivity extends AppCompatActivity {
 
-    String reason;
-    int selectedRoom = -1;
-    int mode = 0;
-    Calendar date;
-    Reservation[] filtered;
+    int roomSelected = -1, mode = 0;
+    Calendar calendarFrom, calendarTo, calendarDate;
+
+    Calendar calendarDateFrom;
+    int daysAhead;
+    boolean[] weekdays;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add);
-        setTitle("Бронирование");
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        setTitle("Новое бронирование");
 
-        ListView lv = findViewById(R.id.lv_rooms);
-        lv.setAdapter(new RoomAdapter());
+        findViewById(R.id.tv_room).setOnClickListener(v -> {
+            RoomDialog.display(getSupportFragmentManager());
+        });
 
-        date = Calendar.getInstance();
+        ChipGroup chipGroup = findViewById(R.id.chipGroup);
+        chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            if(checkedId == R.id.chip_single) {
+                findViewById(R.id.layout_single).setVisibility(View.VISIBLE);
+                findViewById(R.id.layout_repeat).setVisibility(View.INVISIBLE);
+                mode = 0;
+            } else {
+                findViewById(R.id.layout_single).setVisibility(View.INVISIBLE);
+                findViewById(R.id.layout_repeat).setVisibility(View.VISIBLE);
+                mode = 1;
+            }
+            checkIfComplete();
+        });
 
-        EditText et = findViewById(R.id.add_et_name);
+        EditText et = findViewById(R.id.et_eventname);
         et.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -63,11 +78,7 @@ public class AddActivity extends AppCompatActivity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if(s.length() == 0 || selectedRoom == -1) {
-                    hideButton();
-                } else {
-                    showButton();
-                }
+                checkIfComplete();
             }
 
             @Override
@@ -75,181 +86,254 @@ public class AddActivity extends AppCompatActivity {
 
             }
         });
-        findViewById(R.id.fab_go).setOnClickListener(v -> {
-            if(mode == 0) {
-                findViewById(R.id.screen_room).setVisibility(View.INVISIBLE);
-                findViewById(R.id.screen_date).setVisibility(View.VISIBLE);
-                reason = et.getText().toString();
-                hideKeyboard(this, et);
-            } else if(mode == 1) {
-                LinkedList<Reservation> list = new LinkedList<>();
-                long sum = 0, start, end;
-                for (Reservation res: reservations) {
-                    if(res.startTime < date.getTimeInMillis() + 24 * 60 * 60000L && res.endTime > date.getTimeInMillis()) {
-                        list.add(res);
-                        start = res.startTime;
-                        end = res.endTime;
-                        if(res.startTime < date.getTimeInMillis()) {
-                            start = date.getTimeInMillis();
-                        }
-                        if(res.endTime > date.getTimeInMillis() + 24 * 60 * 60000L) {
-                            end = date.getTimeInMillis() + 24 * 60 * 60000L;
-                        }
-                        sum += (end - start);
-                    }
+
+        weekdays = new boolean[7];
+        int[] chipIds = {R.id.chip_monday, R.id.chip_tuesday, R.id.chip_wednesday, R.id.chip_thursday, R.id.chip_friday,
+                R.id.chip_saturday, R.id.chip_sunday};
+        Chip chip;
+        for (int i = 0; i < 7; i++) {
+            final int j = i;
+            chip = findViewById(chipIds[i]);
+            chip.setOnCheckedChangeListener((v, checked) -> {
+                weekdays[j] = checked;
+                checkIfComplete();
+            });
+        }
+
+        findViewById(R.id.img_date).setOnClickListener(v -> {
+            MaterialDatePicker.Builder<Long> builder = MaterialDatePicker.Builder.datePicker();
+            builder.setTitleText("дата");
+
+            CalendarConstraints.Builder builder1 = new CalendarConstraints.Builder();
+            CalendarConstraints.DateValidator validator = new CalendarConstraints.DateValidator() {
+                @Override
+                public boolean isValid(long date) {
+                    return date > System.currentTimeMillis() - oneDay && date <= System.currentTimeMillis() + THRESHOLD_AHEAD*oneDay;
                 }
-                if(24 * 60 * 60000L - sum < 15*60*1000)
-                    Toast.makeText(this, "Этот день полностью занят", Toast.LENGTH_SHORT).show();
-                else {
-                    findViewById(R.id.screen_date).setVisibility(View.INVISIBLE);
-                    findViewById(R.id.screen_time).setVisibility(View.VISIBLE);
-                    filtered = list.toArray(new Reservation[0]);
-                    hideButton();
+
+                @Override
+                public int describeContents() {
+                    return 0;
                 }
-            } else if(mode == 2) {
-                TimePicker picker = findViewById(R.id.picker);
+
+                @Override
+                public void writeToParcel(Parcel dest, int flags) {
+
+                }
+            };
+            builder1.setValidator(validator);
+            builder.setCalendarConstraints(builder1.build());
+            builder.setSelection(System.currentTimeMillis());
+
+            MaterialDatePicker<Long> picker = builder.build();
+            picker.addOnPositiveButtonClickListener(selection -> {
+                calendarDate = Calendar.getInstance();
+                calendarDate.setTimeInMillis(selection);
+                ((TextView) findViewById(R.id.tv_date)).setText(formatDate(calendarDate));
+                checkIfComplete();
+            });
+            picker.show(getSupportFragmentManager(), "tag");
+        });
+        findViewById(R.id.r_img_date).setOnClickListener(v -> {
+            MaterialDatePicker.Builder<Pair<Long, Long>> builder = MaterialDatePicker.Builder.dateRangePicker();
+            builder.setTitleText("даты");
+
+            CalendarConstraints.Builder builder1 = new CalendarConstraints.Builder();
+            CalendarConstraints.DateValidator validator = new CalendarConstraints.DateValidator() {
+                @Override
+                public boolean isValid(long date) {
+                    return date > System.currentTimeMillis() - oneDay && date <= System.currentTimeMillis() + THRESHOLD_AHEAD*oneDay;
+                }
+
+                @Override
+                public int describeContents() {
+                    return 0;
+                }
+
+                @Override
+                public void writeToParcel(Parcel dest, int flags) {
+
+                }
+            };
+            builder1.setValidator(validator);
+            builder.setCalendarConstraints(builder1.build());
+
+            MaterialDatePicker<Pair<Long, Long>> picker = builder.build();
+            picker.addOnPositiveButtonClickListener(selection -> {
+                calendarDateFrom = Calendar.getInstance();
+                calendarDateFrom.setTimeInMillis(selection.first);
+
+                daysAhead = (int) ((selection.second - selection.first)/oneDay);
+                log("days ahead " + daysAhead);
                 Calendar c = Calendar.getInstance();
-                c.setTimeInMillis(date.getTimeInMillis());
-                c.set(Calendar.HOUR_OF_DAY, picker.getHour());
-                c.set(Calendar.MINUTE, picker.getMinute());
-                long start = c.getTimeInMillis();
-                picker = findViewById(R.id.picker2);
-                c.set(Calendar.HOUR_OF_DAY, picker.getHour());
-                c.set(Calendar.MINUTE, picker.getMinute());
-                long end = c.getTimeInMillis();
+                c.setTimeInMillis(selection.second);
 
-                if(validateTime() == null) {
-                    new Thread(() -> {
-                        SharedPreferences pref = getSharedPreferences("pref", 0);
-                        String response = connect("reserve", "classNumber=" + rooms[selectedRoom].classNumber +
-                                "&teacherId=" + pref.getInt("prsId", 0) + "&reason=" + reason +
-                                "&startTime=" + start + "&endTime=" + end, pref.getString("cookie", ""));
-                        if(!response.equals("success"))
-                            runOnUiThread(() -> Toast.makeText(this, "Что-то пошло не так", Toast.LENGTH_SHORT).show());
-                        else
-                            setResult(1);
-                        finish();
-                    }).start();
+                TextView tv = findViewById(R.id.r_tv_date);
+                tv.setText(String.format(Locale.getDefault(), "%02d.%02d - %02d.%02d",
+                        calendarDateFrom.get(Calendar.DAY_OF_MONTH), calendarDateFrom.get(Calendar.MONTH)+1,
+                        c.get(Calendar.DAY_OF_MONTH), c.get(Calendar.MONTH)+1));
+
+                checkIfComplete();
+            });
+            picker.show(getSupportFragmentManager(), "tag");
+        });
+
+        View.OnClickListener fromListener = v -> {
+            MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(this);
+            TimePicker timePicker = new TimePicker(this);
+            timePicker.setIs24HourView(true);
+            timePicker.setPadding(0, 8, 0, 0);
+
+            try {
+                Class<?> rClass = Class.forName("com.android.internal.R$id");
+                NumberPicker mMinuteSpinner = timePicker.findViewById(rClass.getField("minute").getInt(null));
+                mMinuteSpinner.setMinValue(0);
+                mMinuteSpinner.setMaxValue(11);
+                String[] values = new String[12];
+                for (int i = 0; i < 12; i++) {
+                    values[i] = String.format("%02d", i*5);
                 }
+                mMinuteSpinner.setDisplayedValues(values);
+            } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException e) {
+                loge(e);
             }
-            mode++;
-            invalidateOptionsMenu();
-        });
 
-        CalendarView calendar = findViewById(R.id.calendarView);
-        calendar.setMinDate(System.currentTimeMillis());
-        calendar.setMaxDate(System.currentTimeMillis() + (30L * 24 * 60 * 60000));
-        calendar.setOnDateChangeListener((view, year, month, dayOfMonth) -> {
-            date.set(Calendar.YEAR, year);
-            date.set(Calendar.MONTH, month);
-            date.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-        });
+            b.setView(timePicker);
+            b.setTitle("Время начала");
+            b.setPositiveButton("ок", (dialog, which) -> {
+                TextView tv = findViewById(R.id.tv_from);
+                Calendar c = Calendar.getInstance();
+                c.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
+                c.set(Calendar.MINUTE, timePicker.getMinute()*5);
+                calendarFrom = c;
 
-        TextView tv = findViewById(R.id.add_tv_error);
-        TimePicker picker = findViewById(R.id.picker);
-        picker.setIs24HourView(true);
-        TimePicker.OnTimeChangedListener listener = (view, hourOfDay, minute) -> {
-            String s = validateTime();
-            if(s == null) {
-                tv.setVisibility(View.INVISIBLE);
-                showButton();
-            } else {
-                tv.setVisibility(View.VISIBLE);
-                tv.setText(s);
-                hideButton();
-            }
+                tv.setText(String.format(Locale.getDefault(), "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)));
+                tv = findViewById(R.id.r_tv_from);
+                tv.setText(String.format(Locale.getDefault(), "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)));
+
+                if(calendarTo == null) {
+                    tv = findViewById(R.id.tv_to);
+                    c = Calendar.getInstance();
+                    c.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
+                    c.set(Calendar.MINUTE, timePicker.getMinute()*5);
+                    c.roll(Calendar.HOUR_OF_DAY, true);
+                    calendarTo = c;
+
+                    tv.setText(String.format(Locale.getDefault(), "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)));
+                    tv = findViewById(R.id.r_tv_to);
+                    tv.setText(String.format(Locale.getDefault(), "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)));
+                }
+
+                checkIfComplete();
+            });
+            b.setNegativeButton("отмена", null);
+            b.show();
         };
-        picker.setOnTimeChangedListener(listener);
-        picker = findViewById(R.id.picker2);
-        picker.setIs24HourView(true);
-        picker.setOnTimeChangedListener(listener);
-    }
+        findViewById(R.id.img_from).setOnClickListener(fromListener);
+        findViewById(R.id.r_img_from).setOnClickListener(fromListener);
+        View.OnClickListener toListener = v -> {
+            MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(this);
+            TimePicker timePicker = new TimePicker(this);
+            timePicker.setIs24HourView(true);
+            timePicker.setPadding(0, 8, 0, 0);
 
-    String validateTime() {
-        TimePicker picker = findViewById(R.id.picker),
-                picker1 = findViewById(R.id.picker2);
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(date.getTimeInMillis());
-        c.set(Calendar.HOUR_OF_DAY, picker.getHour());
-        c.set(Calendar.MINUTE, picker.getMinute());
-        Calendar c1 = Calendar.getInstance();
-        c1.setTimeInMillis(date.getTimeInMillis());
-        c1.set(Calendar.HOUR_OF_DAY, picker1.getHour());
-        c1.set(Calendar.MINUTE, picker1.getMinute());
-
-        if(c.getTimeInMillis() < System.currentTimeMillis()) {
-            return "Выберите предстоящее время";
-        } else if(c.getTimeInMillis() > c1.getTimeInMillis()) {
-            return "Время окончания меньше времени начала";
-        } else if(c.getTimeInMillis() + 5*60000 > c1.getTimeInMillis())
-            return "Мероприятие не может быть короче пяти минут";
-
-        boolean ok = true;
-        for (Reservation res : reservations) {
-            if(res.startTime < c1.getTimeInMillis() && res.endTime > c.getTimeInMillis()) {
-                ok = false;
-                break;
+            try {
+                Class<?> rClass = Class.forName("com.android.internal.R$id");
+                NumberPicker mMinuteSpinner = timePicker.findViewById(rClass.getField("minute").getInt(null));
+                mMinuteSpinner.setMinValue(0);
+                mMinuteSpinner.setMaxValue(11);
+                String[] values = new String[12];
+                for(int i = 0; i < 12; i++) {
+                    values[i] = String.format("%02d", i*5);
+                }
+                mMinuteSpinner.setDisplayedValues(values);
+            } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException e) {
+                loge(e);
             }
-        }
-        if(ok)
-            return null;
-        else
-            return "На это время уже есть бронирование";
+
+            b.setView(timePicker);
+            b.setTitle("Время окончания");
+            b.setPositiveButton("ок", (dialog, which) -> {
+                TextView tv = findViewById(R.id.tv_to);
+                Calendar c = Calendar.getInstance();
+                c.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
+                c.set(Calendar.MINUTE, timePicker.getMinute()*5);
+                calendarTo = c;
+
+                tv.setText(String.format(Locale.getDefault(), "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)));
+                tv = findViewById(R.id.r_tv_to);
+                tv.setText(String.format(Locale.getDefault(), "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)));
+                checkIfComplete();
+            });
+            b.setNegativeButton("отмена", null);
+                b.show();
+        };
+        findViewById(R.id.img_to).setOnClickListener(toListener);
+        findViewById(R.id.r_img_to).setOnClickListener(toListener);
+        findViewById(R.id.btn_submitevent).setOnClickListener(v -> {
+            String reason = et.getText().toString().trim();
+
+            Calendar c = Calendar.getInstance();
+            c.setTimeInMillis(calendarFrom.getTimeInMillis());
+            c.roll(Calendar.MINUTE, 10);
+            if(calendarTo.before(calendarFrom)) {
+                Toast.makeText(this, "Время окончания не может быть раньше времени начала", Toast.LENGTH_SHORT).show();
+                return;
+            } else if(calendarTo.before(c)) {
+                Toast.makeText(this, "Мероприятие не может быть короче 10 минут", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if(mode == 0) {
+                calendarFrom.set(Calendar.MONTH, calendarDate.get(Calendar.MONTH));
+                calendarFrom.set(Calendar.DAY_OF_MONTH, calendarDate.get(Calendar.DAY_OF_MONTH));
+                calendarFrom.set(Calendar.YEAR, calendarDate.get(Calendar.YEAR));
+
+                calendarTo.set(Calendar.MONTH, calendarDate.get(Calendar.MONTH));
+                calendarTo.set(Calendar.DAY_OF_MONTH, calendarDate.get(Calendar.DAY_OF_MONTH));
+                calendarTo.set(Calendar.YEAR, calendarDate.get(Calendar.YEAR));
+
+                new Thread(() -> {
+                    SharedPreferences pref = getSharedPreferences("pref", 0);
+                    String response = connect("reserve", "classNumber=" + rooms[roomSelected].classNumber +
+                                    "&teacherId=" + pref.getInt("prsId", 0) + "&reason=" + reason +
+                                    "&startTime=" + calendarFrom.getTimeInMillis() + "&endTime=" + calendarTo.getTimeInMillis(),
+                            pref.getString("cookie", ""));
+                    if (!response.equals("success"))
+                        runOnUiThread(() -> Toast.makeText(this, "Что-то пошло не так", Toast.LENGTH_SHORT).show());
+                    else
+                        setResult(1);
+                    runOnUiThread(this::finish);
+                }).start();
+            } else {
+                Calendar start = Calendar.getInstance();
+                start.setTimeInMillis(calendarDateFrom.getTimeInMillis());
+                start.set(Calendar.HOUR_OF_DAY, calendarFrom.get(Calendar.HOUR_OF_DAY));
+                start.set(Calendar.MINUTE, calendarFrom.get(Calendar.MINUTE));
+
+                new Thread(() -> {
+                    SharedPreferences pref = getSharedPreferences("pref", 0);
+                    String response = connect("reserve_period", "classNumber=" + rooms[roomSelected].classNumber +
+                                    "&teacherId=" + pref.getInt("prsId", 0) + "&reason=" + reason +
+                                    "&startTime=" + start.getTimeInMillis() + "&endTime=" + calendarTo.getTimeInMillis() +
+                                    "&daysCount=" + daysAhead + "&daysOfWeek=" + Arrays.toString(weekdays)
+                                    .replaceAll("[\\[\\] ]", ""),
+                            pref.getString("cookie", ""));
+                    if (!response.equals("success"))
+                        runOnUiThread(() -> Toast.makeText(this, "Что-то пошло не так", Toast.LENGTH_SHORT).show());
+                    else
+                        setResult(1);
+                    runOnUiThread(this::finish);
+                }).start();
+            }
+        });
     }
 
-    void showButton() {
-        if(findViewById(R.id.fab_go).getVisibility() == View.VISIBLE)
-            return;
-        Animation animation1 = new AlphaAnimation(0.0f, 1.0f);
-        animation1.setDuration(500);
-        findViewById(R.id.fab_go).startAnimation(animation1);
-        findViewById(R.id.fab_go).setVisibility(View.VISIBLE);
-    }
-
-    void hideButton() {
-        findViewById(R.id.fab_go).setVisibility(View.INVISIBLE);
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        menu.clear();
-        if(mode == 0)
-            menu.add(0, 0, 0, "Добавить класс").setIcon(R.drawable.add)
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if(item.getItemId() == android.R.id.home)
-            onBackPressed();
-        else if(item.getItemId() == 0) {
-            startActivity(new Intent(this, AddRoomActivity.class));
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    public void onBackPressed() {
-        switch (mode) {
-            case 1:
-                findViewById(R.id.screen_date).setVisibility(View.INVISIBLE);
-                findViewById(R.id.screen_room).setVisibility(View.VISIBLE);
-                mode--;
-                invalidateOptionsMenu();
-                showButton();
-                break;
-            case 2:
-                findViewById(R.id.screen_time).setVisibility(View.INVISIBLE);
-                findViewById(R.id.screen_date).setVisibility(View.VISIBLE);
-                mode--;
-                invalidateOptionsMenu();
-                showButton();
-                break;
-            default:
-                super.onBackPressed();
-        }
+    void refreshRoom(int roomSelected) {
+        this.roomSelected = roomSelected;
+        Button button = findViewById(R.id.tv_room);
+        button.setText(rooms[roomSelected].classNumber);
+        checkIfComplete();
     }
 
     static String formatSeats(int seats) {
@@ -272,80 +356,40 @@ public class AddActivity extends AppCompatActivity {
         }
     }
 
-    class RoomAdapter extends BaseAdapter {
-        @Override
-        public int getCount() {
-            return rooms.length;
+    void checkIfComplete() {
+        EditText et = findViewById(R.id.et_eventname);
+        Button btn = findViewById(R.id.btn_submitevent);
+        boolean flag = false;
+        for (boolean b : weekdays) {
+            flag = flag || b;
         }
-
-        @Override
-        public Object getItem(int position) {
-            return rooms[position];
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return 0;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view;
-            if(convertView != null)
-                view = convertView;
-            else
-                view = getLayoutInflater().inflate(R.layout.template_room, parent, false);
-            TextView tv = view.findViewById(R.id.tv_roomnumber);
-            tv.setText(rooms[position].classNumber);
-            tv = view.findViewById(R.id.tv_roomtype);
-            StringBuilder types = new StringBuilder();
-            for (int i = 0; i < rooms[position].typeDescriptions.length; i++) {
-                types.append(rooms[position].typeDescriptions[i]).append("; ");
-            }
-            if(types.length() > 0) {
-                types.delete(types.length()-2, types.length());
-            }
-            tv.setText(types.toString());
-            tv = view.findViewById(R.id.tv_seats);
-            tv.setText(rooms[position].seats + " " + formatSeats(rooms[position].seats));
-            tv = view.findViewById(R.id.tv_responsible);
-            String fio = rooms[position].teacherResponsible.fio;
-            String[] words = fio.split(" ");
-            if(words.length == 3) {
-                fio = words[0] + " " + words[1].charAt(0) + ". " + words[2].charAt(0) + ".";
-            }
-            tv.setText(fio);
-            view.setOnClickListener(v -> {
-                TextView room = findViewById(R.id.tv_selected);
-                room.setText(rooms[position].classNumber);
-                room.setVisibility(View.VISIBLE);
-                selectedRoom = position;
-                Animation animation1 = new AlphaAnimation(0.3f, 1.0f);
-                animation1.setDuration(500);
-                v.startAnimation(animation1);
-                if(((EditText) findViewById(R.id.add_et_name)).getText().toString().length() == 0 || selectedRoom == -1) {
-                    hideButton();
-                } else {
-                    showButton();
-                }
-            });
-            view.setLongClickable(true);
-            view.setOnLongClickListener(v -> {
-                AlertDialog.Builder builder = new AlertDialog.Builder(AddActivity.this);
-                builder.setTitle("Предупреждение");
-                builder.setMessage("Удалить класс?");
-                builder.setPositiveButton("Да", (a, b) -> {
-                    // todo delete_room request
-                });
-                builder.setNegativeButton("отмена", null);
-                builder.show();
-                return true;
-            });
-            return view;
-        }
+        if(et.getText().toString().replaceAll(" ", "").length() == 0
+            || roomSelected == -1 || calendarTo == null || calendarFrom == null || mode == 0 && calendarDate == null
+            || mode == 1 && (calendarDateFrom == null || daysAhead == 0 || !flag))
+            btn.setEnabled(false);
+        else
+            btn.setEnabled(true);
     }
-    private static void hideKeyboard(Context context, View view) {
-        InputMethodManager imm = (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
-        imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+
+    String formatDate(Calendar c) {
+        String date;
+        Calendar now = Calendar.getInstance();
+        Calendar nextDay = Calendar.getInstance();
+        nextDay.roll(Calendar.DAY_OF_MONTH, 1);
+        if(Math.abs(c.getTimeInMillis() - now.getTimeInMillis()) < oneDay && now.get(Calendar.DAY_OF_MONTH) == c.get(Calendar.DAY_OF_MONTH))
+            date = "Сегодня";
+        else if(Math.abs(c.getTimeInMillis() - now.getTimeInMillis()) < 2*oneDay
+                && nextDay.get(Calendar.DAY_OF_MONTH) == nextDay.get(Calendar.DAY_OF_MONTH))
+            date = "Завтра";
+        else
+            date = String.format(Locale.getDefault(), "%02d.%02d", c.get(Calendar.DAY_OF_MONTH), c.get(Calendar.MONTH)+1);
+        return date;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if(item.getItemId() == android.R.id.home)
+            onBackPressed();
+        return super.onOptionsItemSelected(item);
     }
 }

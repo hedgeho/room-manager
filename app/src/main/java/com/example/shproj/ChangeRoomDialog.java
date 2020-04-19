@@ -151,6 +151,7 @@ public class ChangeRoomDialog extends DialogFragment {
                 roomAdapter.list = Arrays.asList(rooms);
                 getActivity().runOnUiThread(() -> roomAdapter.notifyDataSetChanged());
             }
+            getActivity().runOnUiThread(this::dismiss);
         }).start());
         if(id == -1)
             v.findViewById(R.id.btn_delete).setVisibility(View.INVISIBLE);

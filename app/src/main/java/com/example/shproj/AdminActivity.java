@@ -6,15 +6,11 @@ import android.text.TextWatcher;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AutoCompleteTextView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
-import android.widget.Filter;
-import android.widget.Filterable;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
@@ -24,7 +20,6 @@ import java.util.List;
 import static com.example.shproj.AddActivity.formatSeats;
 import static com.example.shproj.MainActivity.rooms;
 import static com.example.shproj.MainActivity.teachers;
-import static com.example.shproj.PageFragment.formatFio;
 
 public class AdminActivity extends AppCompatActivity {
 
@@ -40,11 +35,11 @@ public class AdminActivity extends AppCompatActivity {
 
         mode = getIntent().getIntExtra("type", 0);
 
-        setTitle(mode == 0?"Классы":"Учителя");
+        setTitle(mode == 0?"Кабинеты":"Учителя");
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         EditText et = findViewById(R.id.et_input);
-        et.setHint(mode == 0?"Класс":"Учитель");
+        et.setHint(mode == 0?"Кабинет":"Учитель");
         ListView lv = findViewById(R.id.admin_lv);
 
         if(mode == 0) {
@@ -168,18 +163,6 @@ public class AdminActivity extends AppCompatActivity {
                 fio = words[0] + " " + words[1].charAt(0) + ". " + words[2].charAt(0) + ".";
             }
             tv.setText(fio);
-//            view.setLongClickable(true);
-//            view.setOnLongClickListener(v -> {
-//                AlertDialog.Builder builder = new AlertDialog.Builder(getApplicationContext());
-//                builder.setTitle("Предупреждение");
-//                builder.setMessage("Удалить класс?");
-//                builder.setPositiveButton("Да", (a, b) -> {
-//                    // todo delete_room request
-//                });
-//                builder.setNegativeButton("отмена", null);
-//                builder.show();
-//                return true;
-//            });
             return view;
         }
     }
@@ -223,102 +206,7 @@ public class AdminActivity extends AppCompatActivity {
 ////                et.setText(teacher.classNumber);
 ////                roomSelected = position;
 //            });
-            view.setLongClickable(true);
-            view.setOnLongClickListener(v -> {
-                AlertDialog.Builder builder = new AlertDialog.Builder(getApplicationContext());
-                builder.setTitle("Предупреждение");
-                builder.setMessage("Удалить класс?");
-                builder.setPositiveButton("Да", (a, b) -> {
-                    // todo delete_room request
-                });
-                builder.setNegativeButton("отмена", null);
-                builder.show();
-                return true;
-            });
             return view;
-        }
-    }
-    class ACTVAdapter extends BaseAdapter implements Filterable {
-
-        TeacherFilter filter;
-        List<MainActivity.Teacher> list, fullList;
-        View dialog;
-
-        ACTVAdapter(View v) {
-            fullList = Arrays.asList(teachers);
-            list = new ArrayList<>(fullList);
-            dialog = v;
-        }
-
-        @Override
-        public int getCount() {
-            return list.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return null;
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return list.get(position).personId;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view;
-            if(convertView != null)
-                view = convertView;
-            else
-                view = getLayoutInflater().inflate(android.R.layout.simple_dropdown_item_1line, parent, false);
-            TextView tv = view.findViewById(android.R.id.text1);
-            tv.setText(formatFio(list.get(position).fio));
-            view.setOnClickListener(v -> {
-                AutoCompleteTextView actv = dialog.findViewById(R.id.actv_responsible);
-                actv.setText(formatFio(list.get(position).fio));
-                prsIdSelected = list.get(position).personId;
-                actv.dismissDropDown();
-            });
-            return view;
-        }
-
-        @Override
-        public Filter getFilter() {
-            if(filter == null) {
-                filter = new TeacherFilter();
-            }
-            return filter;
-        }
-
-        class TeacherFilter extends Filter {
-
-            @Override
-            protected FilterResults performFiltering(CharSequence constraint) {
-                FilterResults results = new FilterResults();
-                if(constraint == null || constraint.length() == 0) {
-                    results.values = new ArrayList<>(fullList);
-                    results.count = fullList.size();
-                } else {
-                    String query = constraint.toString().trim().toLowerCase();
-                    ArrayList<MainActivity.Teacher> list = new ArrayList<>();
-                    for (MainActivity.Teacher t: fullList) {
-                        if(t.fio.toLowerCase().contains(query))
-                            list.add(t);
-                    }
-                    results.values = list;
-                    results.count = list.size();
-                }
-                return results;
-            }
-
-            @Override
-            protected void publishResults(CharSequence constraint, FilterResults results) {
-                list = (List<MainActivity.Teacher>) results.values;
-                if(list.size() > 1)
-                    prsIdSelected = -1;
-                notifyDataSetChanged();
-            }
         }
     }
 }

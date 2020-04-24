@@ -65,6 +65,14 @@ public class MainActivity extends AppCompatActivity {
     final static long oneDay = 86400000;
     final static int THRESHOLD_AHEAD = 60;
 
+    // todo      swipe for weeks
+    // todo      addActivity check for events in the same time and room
+    // todo      roomDialog доделать фильтр по типам, по количеству мест, по времени
+    // todo      changeRoomDialog disable roomNumber changing
+    // todo      threshold for previous days
+    // todo      roomType changing
+    // todo      adminActivity таймлайн кабинета
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -116,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         int daysFromBeginning = (int) ((calendar.getTimeInMillis() - EPOCH)/oneDay); // days from 01/01/2020
         log("days from 01/01/2020: " + daysFromBeginning);
 
-        fragments = new PageFragment[daysFromBeginning + THRESHOLD_AHEAD]; // todo how many days ahead
+        fragments = new PageFragment[daysFromBeginning + THRESHOLD_AHEAD];
         long date = EPOCH;
         for (int i = 0; i < fragments.length; i++) {
             fragments[i] = new PageFragment();

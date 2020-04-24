@@ -4,7 +4,4 @@
     <string name="mtrl_picker_range_header_unselected" tools:override="true">Дата начала - Дата окончания</string>
     <string name="mtrl_picker_range_header_only_start_selected" tools:override="true">%1$s - Дата окончания</string>
     <string name="mtrl_picker_range_header_only_end_selected" tools:override="true">Дата начала - %1$s</string>
-
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

@@ -9,7 +9,7 @@
         <item name="android:windowIsFloating">false</item>
         <item name="android:timePickerStyle">@style/AppTheme</item>
         <item name="android:timePickerMode">spinner</item>
-        <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Filter</item>щ
+        <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Filter</item>
     </style>
 
 <!--    <style name="Theme.MaterialComponents.Light.DarkActionBar">-->

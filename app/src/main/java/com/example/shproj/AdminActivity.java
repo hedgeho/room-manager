@@ -26,7 +26,6 @@ public class AdminActivity extends AppCompatActivity {
     int mode; // 0 - rooms, 1 - teachers
     static RoomAdapter roomAdapter;
     TeacherAdapter teacherAdapter;
-    int prsIdSelected = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

@@ -20,28 +20,17 @@
         <requestFocus />
     </EditText>
 
-    <TextView
-        android:id="@+id/textView10"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="32dp"
-        android:text="Кабинет:"
-        android:textSize="18sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/et_eventname" />
-
     <Button
         android:id="@+id/tv_room"
         style="?attr/materialButtonOutlinedStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:text="Выбрать"
+        android:layout_marginTop="16dp"
+        android:text="Выбрать кабинет"
         android:textColor="#000000"
-        app:layout_constraintBottom_toBottomOf="@+id/textView10"
-        app:layout_constraintStart_toEndOf="@+id/textView10"
-        app:layout_constraintTop_toTopOf="@+id/textView10" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/divider" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_submitevent"
@@ -59,23 +48,23 @@
 
     <View
         android:id="@+id/divider"
-        android:layout_width="391dp"
+        android:layout_width="0dp"
         android:layout_height="1dp"
         android:layout_marginTop="16dp"
         android:background="?android:attr/listDivider"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_room" />
+        app:layout_constraintTop_toBottomOf="@+id/layout_repeat" />
 
     <com.google.android.material.chip.ChipGroup
         android:id="@+id/chipGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="16dp"
         app:checkedChip="@id/chip_single"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/divider"
+        app:layout_constraintTop_toBottomOf="@+id/et_eventname"
         app:singleSelection="true">
 
         <com.google.android.material.chip.Chip
@@ -96,10 +85,9 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layout_repeat"
         android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:visibility="invisible"
-        app:layout_constraintBottom_toTopOf="@+id/btn_submitevent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/chipGroup"
@@ -204,9 +192,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
+            android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/textView19">
+            app:layout_constraintTop_toBottomOf="@+id/textView19"
+            tools:visibility="visible">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_monday"
@@ -276,9 +266,8 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layout_single"
         android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/btn_submitevent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/chipGroup"

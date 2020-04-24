@@ -89,8 +89,9 @@
                 android:id="@+id/ch_et_seats"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
                 android:ems="3"
+                android:inputType="number"
                 app:layout_constraintEnd_toEndOf="@+id/ch_et_num"
                 app:layout_constraintTop_toBottomOf="@+id/ch_et_num" />
 

@@ -1,6 +1,13 @@
 package com.example.shproj;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.DynamicDrawableSpan;
+import android.text.style.ImageSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,8 +24,8 @@ import java.util.LinkedList;
 import java.util.Locale;
 
 import static com.example.shproj.MainActivity.Room;
-import static com.example.shproj.MainActivity.oneDay;
 import static com.example.shproj.MainActivity.nameToIndex;
+import static com.example.shproj.MainActivity.oneDay;
 import static com.example.shproj.MainActivity.rooms;
 import static com.example.shproj.MainActivity.teachersMap;
 
@@ -161,14 +168,24 @@ public class PageFragment extends Fragment {
                 v = convertView;
             else
                 v = getLayoutInflater().inflate(R.layout.template_reservation, parent, false);
-            ((TextView) v.findViewById(R.id.tv_text)).setText("" + localRooms[groupPosition].classNumber);
             ((TextView) v.findViewById(R.id.tv_subtext)).setText(format(groupPosition));
             v.findViewById(R.id.tv_person).setVisibility(View.GONE);
-//            if(roomList[groupPosition].length == 0)
-////                v.setVisibility(View.GONE);
-////            else
-////                v.setVisibility(View.VISIBLE);
-//                return null;
+
+            boolean live = false;
+            for (Reservation reservation: roomList[groupPosition]) {
+                if(reservation.startTime <= System.currentTimeMillis() &&
+                        System.currentTimeMillis() < reservation.endTime) {
+                    live = true;
+                    break;
+                }
+            }
+            TextView tv = v.findViewById(R.id.tv_text);//.setText("" + localRooms[groupPosition].classNumber);
+            if(live) {
+                SpannableStringBuilder ssb = new SpannableStringBuilder(localRooms[groupPosition].classNumber + "   ");
+                ssb.setSpan(new ImageSpan(getContext(), R.drawable.live, DynamicDrawableSpan.ALIGN_BASELINE), ssb.length() - 1, ssb.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+                tv.setText(ssb);
+            } else
+                tv.setText(localRooms[groupPosition].classNumber);
             return v;
         }
 
@@ -183,7 +200,13 @@ public class PageFragment extends Fragment {
 
             TextView tv = view.findViewById(R.id.tv_text);
             if(mode == MODE_DEFAULT) {
-                tv.setText(roomList[groupPosition][childPosition].reason);
+                if(roomList[groupPosition][childPosition].startTime <= System.currentTimeMillis() &&
+                    System.currentTimeMillis() < roomList[groupPosition][childPosition].endTime) {
+                    SpannableStringBuilder ssb = new SpannableStringBuilder(roomList[groupPosition][childPosition].reason + "   ");
+                    ssb.setSpan(new ImageSpan(getContext(), R.drawable.live, DynamicDrawableSpan.ALIGN_BASELINE), ssb.length() - 1, ssb.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+                    tv.setText(ssb);
+                } else
+                    tv.setText(roomList[groupPosition][childPosition].reason);
                 tv = view.findViewById(R.id.tv_subtext);
                 String time = "";
                 if (roomList[groupPosition][childPosition].startTime >= c.getTimeInMillis())
@@ -202,7 +225,6 @@ public class PageFragment extends Fragment {
             }/* else if(mode == MODE_ROOMS) {
 //                tv.setText();
             }*/
-
             return view;
         }
 
@@ -210,6 +232,25 @@ public class PageFragment extends Fragment {
         public boolean isChildSelectable(int groupPosition, int childPosition) {
             return true;
         }
+    }
+
+    private Bitmap paintAndScale(int size) {
+        Drawable drawable = getResources().getDrawable(R.drawable.live, getContext().getTheme());
+        return Bitmap.createScaledBitmap(drawableToBitmap(drawable), size, size, true);
+    }
+    private static Bitmap drawableToBitmap(Drawable drawable) {
+        Bitmap bitmap;
+
+        if(drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
+            bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888); // Single color bitmap will be created of 1x1 pixel
+        } else {
+            bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        }
+
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
     }
 
     private String format(int index) {

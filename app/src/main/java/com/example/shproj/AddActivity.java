@@ -51,19 +51,20 @@ public class AddActivity extends AppCompatActivity {
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         setTitle("Новое бронирование");
 
-        findViewById(R.id.tv_room).setOnClickListener(v -> {
-            RoomDialog.display(getSupportFragmentManager());
-        });
+        findViewById(R.id.tv_room).setOnClickListener(v ->
+                RoomDialog.display(getSupportFragmentManager(), calendarFrom, calendarTo, calendarDate, weekdays));
 
         ChipGroup chipGroup = findViewById(R.id.chipGroup);
         chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if(checkedId == R.id.chip_single) {
                 findViewById(R.id.layout_single).setVisibility(View.VISIBLE);
                 findViewById(R.id.layout_repeat).setVisibility(View.INVISIBLE);
+                findViewById(R.id.chips_weekdays).setVisibility(View.GONE);
                 mode = 0;
             } else {
                 findViewById(R.id.layout_single).setVisibility(View.INVISIBLE);
                 findViewById(R.id.layout_repeat).setVisibility(View.VISIBLE);
+                findViewById(R.id.chips_weekdays).setVisibility(View.VISIBLE);
                 mode = 1;
             }
             checkIfComplete();
@@ -139,10 +140,15 @@ public class AddActivity extends AppCompatActivity {
             builder.setTitleText("даты");
 
             CalendarConstraints.Builder builder1 = new CalendarConstraints.Builder();
+            final Calendar now = Calendar.getInstance();
+            now.set(Calendar.HOUR_OF_DAY, 0);
+            now.set(Calendar.MINUTE, 0);
+            now.set(Calendar.SECOND, 0);
+            now.set(Calendar.MILLISECOND, 0);
             CalendarConstraints.DateValidator validator = new CalendarConstraints.DateValidator() {
                 @Override
                 public boolean isValid(long date) {
-                    return date > System.currentTimeMillis() - oneDay && date <= System.currentTimeMillis() + THRESHOLD_AHEAD*oneDay;
+                    return date >= now.getTimeInMillis() && date < now.getTimeInMillis() + THRESHOLD_AHEAD*oneDay;
                 }
 
                 @Override
@@ -332,7 +338,7 @@ public class AddActivity extends AppCompatActivity {
     void refreshRoom(int roomSelected) {
         this.roomSelected = roomSelected;
         Button button = findViewById(R.id.tv_room);
-        button.setText(rooms[roomSelected].classNumber);
+        button.setText("кабинет " + rooms[roomSelected].classNumber);
         checkIfComplete();
     }
 
